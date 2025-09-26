@@ -1,3 +1,4 @@
+// src/components/ShopList.jsx
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Image as ImageIcon, ChevronRight } from "lucide-react";
@@ -35,9 +36,9 @@ function BottomSheet({ shop, onClose }) {
   );
 }
 
-export default function ShopList({ shops }) {
+export default function ShopList({ shops = [] }) {
+  const safeShops = Array.isArray(shops) ? shops : [];
   const [selected, setSelected] = useState(null);
-  const [query, setQuery] = useState("");
   const [activeLetter, setActiveLetter] = useState(null);
   const [scrollLetter, setScrollLetter] = useState(null);
   const [bubbleY, setBubbleY] = useState(null);
@@ -49,7 +50,7 @@ export default function ShopList({ shops }) {
   const lastLetterRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
 
-  // ✅ React to city changes from drawer
+  // ✅ React to city changes
   useEffect(() => {
     const handler = () => {
       setCityFilter(localStorage.getItem("selectedCity") || "");
@@ -58,25 +59,19 @@ export default function ShopList({ shops }) {
     return () => window.removeEventListener("city-changed", handler);
   }, []);
 
-  // ✅ Filter by query + city
+  // ✅ Filter by city only
   const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-    return shops.filter(
-      (s) =>
-        (!cityFilter || s.city === cityFilter) && // ← filter by chosen city
-        (s.name?.toLowerCase().includes(q) ||
-          s.city?.toLowerCase().includes(q) ||
-          s.town?.toLowerCase().includes(q))
-    );
-  }, [shops, query, cityFilter]);
+    return safeShops.filter((s) => !cityFilter || s.city === cityFilter);
+  }, [safeShops, cityFilter]);
 
   // ✅ Group A–Z
   const grouped = useMemo(() => {
+    if (!filtered.length) return {};
     const sorted = [...filtered].sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "")
+      (a?.name || "").localeCompare(b?.name || "")
     );
     return sorted.reduce((acc, shop) => {
-      const letter = shop.name?.charAt(0).toUpperCase() || "#";
+      const letter = shop?.name?.charAt(0)?.toUpperCase() || "#";
       if (!acc[letter]) acc[letter] = [];
       acc[letter].push(shop);
       return acc;
@@ -101,7 +96,7 @@ export default function ShopList({ shops }) {
     scrollTimeoutRef.current = setTimeout(() => setScrollLetter(null), 700);
   };
 
-  // ✅ Touch handling
+  // ✅ Touch sidebar
   const handleTouch = (e) => {
     if (!sidebarRef.current) return;
     const touch = e.touches[0];
@@ -144,29 +139,22 @@ export default function ShopList({ shops }) {
   }, [letters]);
 
   return (
-    <div className="flex h-full relative pt-14">
+    <div className="flex h-full relative">
       {/* Contact list */}
-      <div className="flex-1 overflow-y-auto pb-20 bg-white dark:bg-black">
-        {/* Show selected city */}
-        {cityFilter && (
-          <div className="sticky top-14 z-20 bg-blue-50 dark:bg-gray-800 text-center py-2 text-sm font-medium text-blue-700 dark:text-teal-300 border-b border-gray-200 dark:border-gray-700">
-            Showing shops in {cityFilter}
-          </div>
-        )}
-
+      <div className="flex-1 overflow-y-auto pb-20 bg-white dark:bg-black pt-6">
         {letters.map((letter) => (
           <div key={letter} id={letter}>
-            <h2 className="sticky top-[calc(3.5rem+32px)] z-10 ml-3 mt-1 mb-0.5 text-[11px] font-semibold text-gray-500">
+            <h2 className="sticky top-0 z-10 ml-3 mt-1 mb-0.5 text-[11px] font-semibold text-gray-500 bg-white dark:bg-black">
               {letter}
             </h2>
 
             {grouped[letter].map((shop, idx) => {
-              const safeName = shop.name || "No Name";
-              const placeholderUrl = `https://placehold.co/80x80/e2e8f0/64748b.png?text=${safeName.charAt(
-                0
-              ).toUpperCase()}`;
+              const safeName = shop?.name || "No Name";
+              const placeholderUrl = `https://placehold.co/80x80/e2e8f0/64748b.png?text=${safeName
+                .charAt(0)
+                .toUpperCase()}`;
               const imageUrl =
-                shop.logo && shop.logo.startsWith("/images/")
+                shop?.logo && shop.logo.startsWith("/images/")
                   ? shop.logo
                   : placeholderUrl;
 
@@ -196,7 +184,7 @@ export default function ShopList({ shops }) {
                     <div className="flex flex-col">
                       <span className="font-medium">{safeName}</span>
                       <span className="text-sm text-gray-500">
-                        {shop.town}, {shop.city}
+                        {shop?.town || ""}, {shop?.city || ""}
                       </span>
                     </div>
                   </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Bell, Sun, Moon } from "lucide-react";
+import { Bell } from "lucide-react";
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(false);
@@ -31,7 +31,7 @@ export default function Navbar() {
     >
       {/* Logo */}
       <img
-        src={isDark ? "/logo-dark.png" : "/logo-light.png"}
+        src={isDark ? "/logo-dark.png" : "/logo-white.png"}
         alt="App Logo"
         className="h-8 w-auto"
       />
@@ -41,14 +41,6 @@ export default function Navbar() {
         {/* Notification */}
         <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <Bell size={20} className="text-gray-600 dark:text-gray-300" />
-        </button>
-
-        {/* Theme toggle */}
-        <button
-          onClick={() => document.documentElement.classList.toggle("dark")}
-          className="p-2 rounded-full border bg-gray-50 dark:bg-gray-800"
-        >
-          {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
     </header>

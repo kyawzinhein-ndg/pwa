@@ -1,29 +1,55 @@
-export default function EducationPage() {
-  const lessons = [
-    { step: 1, title: "Basics of Phone Repair", desc: "Understand tools and safety" },
-    { step: 2, title: "Disassembly", desc: "Learn how to open phones safely" },
-    { step: 3, title: "Common Issues", desc: "Battery, charging, and screen problems" },
-    { step: 4, title: "Advanced Repairs", desc: "Board-level troubleshooting" },
+// src/pages/EducationPage.jsx
+import { BookOpen, HelpCircle } from "lucide-react";
+import { motion } from "framer-motion";
+
+export default function EducationPage({ setPage }) {
+  const blocks = [
+    {
+      id: "learning",
+      title: "Learning",
+      desc: "Step-by-step tutorials with text & video.",
+      icon: <BookOpen size={28} />,
+      bg: "from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/10",
+      iconBg: "bg-blue-600",
+    },
+    {
+      id: "quiz",
+      title: "Quiz",
+      desc: "Test your repair knowledge with fun quizzes.",
+      icon: <HelpCircle size={28} />,
+      bg: "from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-900/10",
+      iconBg: "bg-teal-600",
+    },
   ];
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">📘 Education</h1>
-      <ul className="space-y-3">
-        {lessons.map((lesson) => (
-          <li
-            key={lesson.step}
-            className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+    <div className="px-4 py-8 space-y-6">
+      <h1 className="text-2xl font-bold">🎓 Education</h1>
+      <p className="text-gray-500 dark:text-gray-400">
+        Learn step-by-step phone repair or test your knowledge with quizzes.
+      </p>
+
+      <div className="space-y-4 mt-6">
+        {blocks.map((item) => (
+          <motion.button
+            key={item.id}
+            onClick={() => setPage(item.id)}
+            whileTap={{ scale: 0.98 }}
+            className={`w-full flex items-center gap-4 p-5 rounded-xl border shadow-md
+                        bg-gradient-to-r ${item.bg} hover:shadow-lg transition text-left`}
           >
-            <h2 className="font-semibold">
-              {lesson.step}. {lesson.title}
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {lesson.desc}
-            </p>
-          </li>
+            <div className={`p-3 rounded-lg ${item.iconBg} text-white`}>
+              {item.icon}
+            </div>
+            <div className="flex flex-col items-start">
+              <span className="font-semibold text-lg">{item.title}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                {item.desc}
+              </span>
+            </div>
+          </motion.button>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

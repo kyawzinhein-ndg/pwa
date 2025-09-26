@@ -1,144 +1,135 @@
-import React, { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import Navbar from "./components/Navbar";
+// src/App.jsx
+import React, { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import BottomNav from "./components/BottomNav";
+import ProfileDrawer from "./components/ProfileDrawer";
+import PageWrapper from "./components/PageWrapper";
+import LoadingScreen from "./components/LoadingScreen";
+import UpdateToast from "./components/UpdateToast";
 
 // Pages
 import HomePage from "./pages/HomePage";
 import ContactPage from "./pages/ContactPage";
 import EducationPage from "./pages/EducationPage";
-import MenuPage from "./pages/MenuPage"; // ✅ new tab
-
-const tabs = ["home", "contact", "education", "menu"]; // ✅ add menu
+import LearningPage from "./pages/LearningPage";
+import QuizPage from "./pages/QuizPage";
 
 export default function App() {
   const [page, setPage] = useState("home");
-  const [direction, setDirection] = useState(0);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [cities, setCities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [bottomVisible, setBottomVisible] = useState(true); // ✅ controls bottom nav
 
-  const [isDark, setIsDark] = useState(
-    () => document.documentElement.classList.contains("dark")
-  );
-  const [homeCity, setHomeCity] = useState(
-    () => localStorage.getItem("homeCity") || ""
-  );
+  // ✅ Theme state (light, dark, auto)
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "auto";
+  });
 
-  // Load theme preference once
   useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (
-      saved === "dark" ||
-      (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    ) {
-      document.documentElement.classList.add("dark");
-      setIsDark(true);
+    const root = document.documentElement;
+
+    const applyTheme = () => {
+      if (theme === "dark") {
+        root.classList.add("dark");
+      } else if (theme === "light") {
+        root.classList.remove("dark");
+      } else {
+        // auto → follow system
+        if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
+      }
+    };
+
+    applyTheme();
+    localStorage.setItem("theme", theme);
+
+    if (theme === "auto") {
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      const listener = () => applyTheme();
+      media.addEventListener("change", listener);
+      return () => media.removeEventListener("change", listener);
     }
+  }, [theme]);
+
+  // ✅ Load city list from shops.json
+  useEffect(() => {
+    fetch("/shops.json")
+      .then((res) => res.json())
+      .then((data) => {
+        const uniqueCities = [...new Set(data.map((s) => s.city))].sort();
+        setCities(uniqueCities);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  // Sync URL on first load
+  // ✅ Sync tab with history API (deep-link URLs)
   useEffect(() => {
-    const path = window.location.pathname.replace("/", "");
-    if (tabs.includes(path)) setPage(path);
-  }, []);
-
-  // Update URL when page changes
-  useEffect(() => {
-    if (page) window.history.pushState(null, "", `/${page}`);
+    window.history.pushState(null, "", `/${page}`);
   }, [page]);
 
-  const currentIndex = tabs.indexOf(page);
-
+  // ✅ Page mapping
   const pages = {
-    home: <HomePage />,
-    contact: <ContactPage city={homeCity} />, // ✅ pass city to filter shops
-    education: <EducationPage />,
-    menu: (
-      <MenuPage
-        isDark={isDark}
-        setTheme={(mode) => {
-          const dark = mode === "dark";
-          document.documentElement.classList.toggle("dark", dark);
-          setIsDark(dark);
-          localStorage.setItem("theme", dark ? "dark" : "light");
-        }}
-        currentCity={homeCity}
-        onChangeCity={(city) => {
-          setHomeCity(city);
-          localStorage.setItem("homeCity", city);
-        }}
-        cities={[
-          "Yangon",
-          "Mandalay",
-          "Naypyidaw",
-          "Bago",
-          "Monywa",
-          "Hledan",
-          "Thanlyin",
-        ]}
-      />
-    ),
-  };
-
-  const variants = {
-    enter: (dir) => ({ x: dir > 0 ? 220 : -220, opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (dir) => ({ x: dir < 0 ? 220 : -220, opacity: 0 }),
-  };
-
-  // Swipe between tabs
-  const touchStartX = useRef(null);
-  const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current == null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-
-    if (diff > 70 && currentIndex > 0) {
-      setDirection(-1);
-      setPage(tabs[currentIndex - 1]);
-    } else if (diff < -70 && currentIndex < tabs.length - 1) {
-      setDirection(1);
-      setPage(tabs[currentIndex + 1]);
-    }
-    touchStartX.current = null;
+    home: <HomePage setPage={setPage} />,
+    contact: <ContactPage />,
+    education: <EducationPage setPage={setPage} />,
+    learning: <LearningPage />,
+    quiz: <QuizPage setBottomVisible={setBottomVisible} />, // ✅ pass setter
   };
 
   return (
-    <div
-      className="min-h-screen bg-white dark:bg-black text-black dark:text-white overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Top navbar (with iOS safe area) */}
-      <Navbar />
-
-      {/* Pages */}
-      <div className="relative min-h-screen pb-[calc(56px+env(safe-area-inset-bottom))] pt-[calc(56px+env(safe-area-inset-top))] overflow-hidden">
-        <AnimatePresence initial={false} custom={direction}>
-          <motion.div
-            key={page}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.22, ease: "easeInOut" }}
-            className="absolute inset-0 p-4"
-          >
-            {pages[page]}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Bottom nav */}
-      <BottomNav
-        current={page}
-        onChange={(next) => {
-          const nextIndex = tabs.indexOf(next);
-          setDirection(nextIndex > currentIndex ? 1 : -1);
-          setPage(next);
+    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
+      {/* Profile drawer (for settings/theme chooser) */}
+      <ProfileDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        cities={cities}
+        onCityChange={(city) => {
+          localStorage.setItem("selectedCity", city);
+          window.dispatchEvent(new Event("city-changed"));
         }}
+        theme={theme}
+        setTheme={setTheme}
       />
+
+      {/* Animated page transitions */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={page}
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -30 }}
+          transition={{ duration: 0.25 }}
+          className="
+            pt-[env(safe-area-inset-top)]
+            pb-[calc(56px+env(safe-area-inset-bottom))]
+          "
+        >
+          <PageWrapper noPadding={page === "quiz"}>
+            {loading && page === "contact" ? (
+              <LoadingScreen />
+            ) : (
+              pages[page]
+            )}
+          </PageWrapper>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* ✅ Show BottomNav only if visible */}
+      {bottomVisible && (
+        <BottomNav
+          page={page}
+          setPage={setPage}
+          onProfile={() => setDrawerOpen(true)}
+        />
+      )}
+
+      {/* PWA update toast */}
+      <UpdateToast />
     </div>
   );
 }

@@ -9,20 +9,14 @@
 
     <title>MPSD - Myanmar Phone Service Directory</title>
 
-    <!-- ✅ Theme & PWA colors (match manifest) -->
-    <meta name="theme-color" content="#0ea5e9" />
-    <meta name="background-color" content="#0ea5e9" />
-
-    <!-- ✅ PWA manifest -->
+    <!-- ✅ PWA & browser theme -->
+    <meta name="theme-color" content="#ffffff" />
     <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- ✅ Mobile web app settings -->
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" /> <!-- keep for iOS -->
-    <meta
-      name="apple-mobile-web-app-status-bar-style"
-      content="black-translucent"
-    />
+    <meta name="apple-mobile-web-app-capable" content="yes" /> <!-- kept for backward compatibility -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="MPSD" />
 
     <!-- ✅ Icons -->
@@ -32,9 +26,10 @@
 
     <!-- ✅ Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-  </head>
+    <script type="module" crossorigin src="/assets/index-BFYTf0N0.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Dw-2JsNx.css">
+  <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
   <body class="bg-white dark:bg-black text-black dark:text-white">
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

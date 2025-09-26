@@ -1,3 +1,4 @@
+// src/pages/ContactPage.jsx
 import { useEffect, useState } from "react";
 import ShopList from "../components/ShopList";
 import LoadingScreen from "../components/LoadingScreen";
@@ -6,9 +7,10 @@ export default function ContactPage() {
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [homeCity, setHomeCity] = useState(
-    () => localStorage.getItem("homeCity") || ""
+    () => localStorage.getItem("selectedCity") || ""
   );
 
+  // ✅ Load shop data
   useEffect(() => {
     fetch("/shops.json")
       .then((res) => res.json())
@@ -22,22 +24,26 @@ export default function ContactPage() {
       });
   }, []);
 
-  // ✅ Watch localStorage changes (sync between MenuPage & ContactPage)
+  // ✅ Sync with ProfileDrawer (city selector)
   useEffect(() => {
-    const handleStorageChange = () => {
-      setHomeCity(localStorage.getItem("homeCity") || "");
+    const handleCityChange = () => {
+      setHomeCity(localStorage.getItem("selectedCity") || "");
     };
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    window.addEventListener("city-changed", handleCityChange);
+    return () => window.removeEventListener("city-changed", handleCityChange);
   }, []);
 
+  // ✅ Show loading spinner while fetching
   if (loading) return <LoadingScreen />;
 
-  // ✅ Filter shops by homeCity (if selected)
+  // ✅ Filter shops by selected city
   const filteredShops = homeCity
-    ? shops.filter((shop) => shop.city?.toLowerCase() === homeCity.toLowerCase())
+    ? shops.filter(
+        (shop) => shop.city?.toLowerCase() === homeCity.toLowerCase()
+      )
     : shops;
 
+  // ✅ Handle no results
   if (filteredShops.length === 0) {
     return (
       <p className="p-4 text-center text-gray-500 dark:text-gray-400">
@@ -46,5 +52,6 @@ export default function ContactPage() {
     );
   }
 
+  // ✅ Pass filtered list into ShopList
   return <ShopList shops={filteredShops} />;
 }
