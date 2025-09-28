@@ -1,8 +1,9 @@
 // src/components/ShopList.jsx
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Image as ImageIcon, ChevronRight } from "lucide-react";
+import { ChevronRight, Search, X, ChevronLeft } from "lucide-react";
 import ShopDetailsContent from "./ShopDetailsContent";
+import AZSidebar from "./AZSidebar";
 
 // --- Bottom Sheet ---
 function BottomSheet({ shop, onClose }) {
@@ -27,7 +28,10 @@ function BottomSheet({ shop, onClose }) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto my-3" />
-          <div className="overflow-y-auto max-h-[75vh] px-6 pb-6">
+          <div
+            className="overflow-y-auto max-h-[75vh] px-6 pb-6 scrollbar-hide overscroll-contain"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
             <ShopDetailsContent shop={shop} />
           </div>
         </motion.div>
@@ -36,232 +40,320 @@ function BottomSheet({ shop, onClose }) {
   );
 }
 
-export default function ShopList({ shops = [] }) {
-  const safeShops = Array.isArray(shops) ? shops : [];
+export default function ShopList({ shops, onBack }) {
   const [selected, setSelected] = useState(null);
-  const [activeLetter, setActiveLetter] = useState(null);
+  const [query, setQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+
   const [scrollLetter, setScrollLetter] = useState(null);
-  const [bubbleY, setBubbleY] = useState(null);
   const [cityFilter, setCityFilter] = useState(
     localStorage.getItem("selectedCity") || ""
   );
 
-  const sidebarRef = useRef(null);
-  const lastLetterRef = useRef(null);
-  const scrollTimeoutRef = useRef(null);
+  const bannerRef = useRef(null);
+  const cardRef = useRef(null);
+  const headerRef = useRef(null);
+
+  const [railRightCSS, setRailRightCSS] = useState("8px");
+  const [railBoxStyle, setRailBoxStyle] = useState({
+    top: "0px",
+    bottom: "0px",
+  });
+
+  const AZ_INSET = 16;
+
+  // ✅ Carousel banners
+  const banners = [
+    "/images/banner1.png",
+    "/images/banner2.png",
+    "/images/banner3.png",
+  ];
+  const [bannerIndex, setBannerIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(
+      () => setBannerIndex((p) => (p + 1) % banners.length),
+      3000
+    );
+    return () => clearInterval(timer);
+  }, [banners.length]);
 
   // ✅ React to city changes
   useEffect(() => {
-    const handler = () => {
+    const handler = () =>
       setCityFilter(localStorage.getItem("selectedCity") || "");
-    };
     window.addEventListener("city-changed", handler);
     return () => window.removeEventListener("city-changed", handler);
   }, []);
 
-  // ✅ Filter by city only
+  // ✅ Filter by query + city
   const filtered = useMemo(() => {
-    return safeShops.filter((s) => !cityFilter || s.city === cityFilter);
-  }, [safeShops, cityFilter]);
+    const q = query.toLowerCase();
+    return shops.filter(
+      (s) =>
+        (!cityFilter || s.city === cityFilter) &&
+        (!q ||
+          s.name?.toLowerCase().includes(q) ||
+          s.city?.toLowerCase().includes(q) ||
+          s.town?.toLowerCase().includes(q))
+    );
+  }, [shops, query, cityFilter]);
 
   // ✅ Group A–Z
   const grouped = useMemo(() => {
-    if (!filtered.length) return {};
     const sorted = [...filtered].sort((a, b) =>
-      (a?.name || "").localeCompare(b?.name || "")
+      (a.name || "").localeCompare(b.name || "")
     );
     return sorted.reduce((acc, shop) => {
-      const letter = shop?.name?.charAt(0)?.toUpperCase() || "#";
-      if (!acc[letter]) acc[letter] = [];
-      acc[letter].push(shop);
+      const letter = shop.name?.charAt(0).toUpperCase() || "#";
+      (acc[letter] ||= []).push(shop);
       return acc;
     }, {});
   }, [filtered]);
 
   const letters = Object.keys(grouped).sort();
 
-  // ✅ Scroll to letter
-  const scrollToLetter = (letter) => {
+  // ✅ scroll helper
+  const scrollToLetter = (letter, smooth = true) => {
     const el = document.getElementById(letter);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-
-    if (lastLetterRef.current !== letter) {
-      lastLetterRef.current = letter;
-      if (navigator.vibrate) navigator.vibrate(15);
+    if (el) {
+      el.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
     }
-
-    setActiveLetter(letter);
     setScrollLetter(letter);
-    clearTimeout(scrollTimeoutRef.current);
-    scrollTimeoutRef.current = setTimeout(() => setScrollLetter(null), 700);
   };
 
-  // ✅ Touch sidebar
-  const handleTouch = (e) => {
-    if (!sidebarRef.current) return;
-    const touch = e.touches[0];
-    const rect = sidebarRef.current.getBoundingClientRect();
-    const relY = touch.clientY - rect.top;
-    const index = Math.floor((relY / rect.height) * letters.length);
-
-    if (index >= 0 && index < letters.length) {
-      scrollToLetter(letters[index]);
-      setBubbleY(touch.clientY);
-    }
-  };
-
-  const handleEnd = () => {
-    setTimeout(() => {
-      setActiveLetter(null);
-      setBubbleY(null);
-      if (navigator.vibrate) navigator.vibrate(25);
-    }, 500);
-  };
-
-  // ✅ Detect scroll
+  // --- Scroll spy (iOS-like) ---
   useEffect(() => {
+    const scroller = cardRef.current;
+    if (!scroller) return;
+
     const handleScroll = () => {
-      const visible = letters.find((letter) => {
+      let current = null;
+      const containerTop = scroller.getBoundingClientRect().top;
+
+      for (let letter of letters) {
         const el = document.getElementById(letter);
-        if (!el) return false;
+        if (!el) continue;
         const rect = el.getBoundingClientRect();
-        return rect.top >= 0 && rect.top < window.innerHeight * 0.25;
-      });
-      if (visible) {
-        setScrollLetter(visible);
-        clearTimeout(scrollTimeoutRef.current);
-        scrollTimeoutRef.current = setTimeout(() => setScrollLetter(null), 800);
+
+        if (rect.top <= containerTop + 60) {
+          current = letter;
+        }
       }
+      if (current) setScrollLetter(current);
     };
 
-    window.addEventListener("scroll", handleScroll, true);
-    return () => window.removeEventListener("scroll", handleScroll, true);
+    scroller.addEventListener("scroll", handleScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", handleScroll);
   }, [letters]);
 
+  // --- Rail positioning ---
+  useEffect(() => {
+    const computeRailRight = () => {
+      const card = cardRef.current;
+      if (!card) return;
+      const rect = card.getBoundingClientRect();
+      const gapToViewportRight = window.innerWidth - rect.right;
+      const px = Math.max(gapToViewportRight + AZ_INSET, AZ_INSET);
+      setRailRightCSS(`${px}px`);
+    };
+    computeRailRight();
+    window.addEventListener("resize", computeRailRight);
+    window.addEventListener("orientationchange", computeRailRight);
+    return () => {
+      window.removeEventListener("resize", computeRailRight);
+      window.removeEventListener("orientationchange", computeRailRight);
+    };
+  }, []);
+
+  useEffect(() => {
+    const computeRailBox = () => {
+      if (!cardRef.current) return;
+      const rect = cardRef.current.getBoundingClientRect();
+      setRailBoxStyle({
+        top: `${rect.top}px`,
+        bottom: `${window.innerHeight - rect.bottom}px`,
+      });
+    };
+    computeRailBox();
+    window.addEventListener("resize", computeRailBox);
+    window.addEventListener("orientationchange", computeRailBox);
+    return () => {
+      window.removeEventListener("resize", computeRailBox);
+      window.removeEventListener("orientationchange", computeRailBox);
+    };
+  }, []);
+
   return (
-    <div className="flex h-full relative">
-      {/* Contact list */}
-      <div className="flex-1 overflow-y-auto pb-20 bg-white dark:bg-black pt-6">
-        {letters.map((letter) => (
-          <div key={letter} id={letter}>
-            <h2 className="sticky top-0 z-10 ml-3 mt-1 mb-0.5 text-[11px] font-semibold text-gray-500 bg-white dark:bg-black">
-              {letter}
-            </h2>
+   <div
+  className="fixed inset-0 flex flex-col overflow-hidden
+             bg-gradient-to-b from-blue-500 via-blue-400 via-25% to-transparent to-25%
+             dark:from-blue-900 dark:via-blue-800 dark:via-25% dark:to-transparent dark:to-25%"
+>
 
-            {grouped[letter].map((shop, idx) => {
-              const safeName = shop?.name || "No Name";
-              const placeholderUrl = `https://placehold.co/80x80/e2e8f0/64748b.png?text=${safeName
-                .charAt(0)
-                .toUpperCase()}`;
-              const imageUrl =
-                shop?.logo && shop.logo.startsWith("/images/")
-                  ? shop.logo
-                  : placeholderUrl;
 
-              return (
-                <motion.div
-                  key={idx}
-                  className="flex items-center justify-between gap-4 px-4 py-3 border-b 
-                             border-gray-200 dark:border-gray-700 cursor-pointer 
-                             bg-white dark:bg-black"
-                  onClick={() => setSelected(shop)}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="flex items-center gap-4">
-                    {imageUrl ? (
-                      <img
-                        src={imageUrl}
-                        alt={safeName}
-                        className="h-10 w-10 rounded-full object-cover border"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
-                        <ImageIcon className="h-5 w-5 text-gray-500" />
-                      </div>
-                    )}
-                    <div className="flex flex-col">
-                      <span className="font-medium">{safeName}</span>
-                      <span className="text-sm text-gray-500">
-                        {shop?.town || ""}, {shop?.city || ""}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                </motion.div>
-              );
-            })}
-          </div>
-        ))}
-
-        {letters.length === 0 && (
-          <p className="p-6 text-center text-gray-500">No results found.</p>
-        )}
-      </div>
-
-      {/* A–Z sidebar */}
+      {/* 🔹 Header */}
       <div
-        ref={sidebarRef}
-        className="fixed right-1 top-1/2 -translate-y-1/2 flex flex-col items-center 
-                   text-[10px] text-gray-500 dark:text-gray-400 select-none z-30
-                   bg-white/40 dark:bg-black/30 backdrop-blur-sm rounded-xl px-2 py-1"
-        onTouchStart={handleTouch}
-        onTouchMove={handleTouch}
-        onTouchEnd={handleEnd}
+        ref={headerRef}
+        className="px-4 pt-[env(safe-area-inset-top)] bg-transparent"
       >
-        {letters.map((letter) => (
+        <div className="flex items-center justify-between py-3">
           <button
-            key={letter}
-            onClick={() => scrollToLetter(letter)}
-            className="py-0.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            onClick={onBack}
+            className="p-2 rounded-full hover:bg-white/20 dark:hover:bg-black/20"
           >
-            {letter}
+            <ChevronLeft className="h-6 w-6 text-white" />
           </button>
-        ))}
+
+          <h1 className="text-white font-semibold text-lg">Contact</h1>
+
+          <div className="w-8 flex justify-end">
+            {!showSearch ? (
+              <button
+                onClick={() => setShowSearch(true)}
+                className="p-2 rounded-full hover:bg-white/20 dark:hover:bg-black/20"
+              >
+                <Search className="h-5 w-5 text-white" />
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowSearch(false);
+                  setQuery("");
+                }}
+                className="p-2 rounded-full hover:bg-white/20 dark:hover:bg-black/20"
+              >
+                <X className="h-5 w-5 text-white" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 🔎 Animated Search Bar */}
+        <AnimatePresence>
+          {showSearch && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
+              className="pb-3"
+            >
+              <input
+                type="text"
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search..."
+                className="w-full px-3 py-2 rounded-md bg-white text-gray-800 text-sm focus:outline-none"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Overlay bubble */}
-      <AnimatePresence>
-        {activeLetter && bubbleY && (
-          <motion.div
-            key={"active-" + activeLetter}
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.6 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="fixed right-12 top-1/2 -translate-y-1/2 z-50 pointer-events-none"
-          >
-            <div className="h-20 w-20 flex items-center justify-center 
-                            text-4xl font-bold text-gray-700 dark:text-gray-200 
-                            bg-white/90 dark:bg-black/80 rounded-full shadow-lg">
-              {activeLetter}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* 🔹 Banner + White container */}
+      <div ref={bannerRef} className="px-4">
+        {/* Banner */}
+        <div className="aspect-[16/9] w-full rounded-t-3xl overflow-hidden shadow-md relative">
+          <img
+            src={banners[bannerIndex]}
+            alt={`Banner ${bannerIndex + 1}`}
+            className="h-full w-full object-cover transition-opacity duration-700"
+          />
+          <div className="absolute bottom-2 w-full flex justify-center gap-2">
+            {banners.map((_, i) => (
+              <span
+                key={i}
+                className={`h-2 w-2 rounded-full transition-colors duration-300 ${
+                  i === bannerIndex ? "bg-white" : "bg-gray-400/50"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
 
-      {/* Scroll indicator bubble */}
-      <AnimatePresence>
-        {scrollLetter && !activeLetter && (
-          <motion.div
-            key={"scroll-" + scrollLetter}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ type: "spring", stiffness: 250, damping: 18 }}
-            className="fixed right-3 top-1/2 -translate-y-1/2 z-40 pointer-events-none"
-          >
-            <div className="h-16 w-16 flex items-center justify-center 
-                            text-3xl font-bold text-gray-700 dark:text-gray-200 
-                            bg-white/90 dark:bg-black/80 rounded-full shadow-lg">
-              {scrollLetter}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* White contact container */}
+        <div
+          ref={cardRef}
+          className="relative bg-white dark:bg-black
+                     rounded-b-3xl shadow-2xl shadow-blue-200/50 dark:shadow-blue-900/40
+                     w-full max-h-[60vh] overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="pr-12">
+            {letters.map((letter) => (
+              <div key={letter} id={letter} className="px-2 scroll-mt-[60px]">
+             <h2
+  id={letter}
+  className="sticky top-0 z-10 text-xs font-semibold text-gray-600 dark:text-gray-300 ml-2
+             bg-transparent pointer-events-none"
+>
+  {letter}
+</h2>
 
-      <BottomSheet shop={selected} onClose={() => setSelected(null)} />
+
+
+                {grouped[letter].map((shop, idx) => {
+                  const safeName = shop.name || "No Name";
+                  const placeholderUrl = `https://placehold.co/80x80/e2e8f0/64748b.png?text=${safeName
+                    .charAt(0)
+                    .toUpperCase()}`;
+                  const imageUrl =
+                    shop.logo && shop.logo.startsWith("/images/")
+                      ? shop.logo
+                      : placeholderUrl;
+
+                  return (
+                    <motion.div
+                      key={idx}
+                      className="flex items-center justify-between gap-4 py-3 border-b 
+                                 border-gray-200 dark:border-gray-700 cursor-pointer 
+                                 bg-white dark:bg-black pl-6"
+                      onClick={() => setSelected(shop)}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={imageUrl}
+                          alt={safeName}
+                          className="h-10 w-10 rounded-full object-cover border"
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-medium">{safeName}</span>
+                          <span className="text-sm text-gray-500">
+                            {[shop.town, shop.city].filter(Boolean).join(", ")}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ))}
+
+            {letters.length === 0 && (
+              <p className="p-6 text-center text-gray-500">No results found.</p>
+            )}
+          </div>
+
+          <BottomSheet shop={selected} onClose={() => setSelected(null)} />
+        </div>
+      </div>
+
+      {/* 📌 A–Z rail OUTSIDE white container, fixed */}
+      <AZSidebar
+  letters={letters}
+  scrollLetter={scrollLetter}
+  onScrollToLetter={scrollToLetter}
+  railRightCSS={railRightCSS}
+  railBoxStyle={railBoxStyle}
+  disabled={showSearch || !!selected}
+/>
+
     </div>
   );
 }

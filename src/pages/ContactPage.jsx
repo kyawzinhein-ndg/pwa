@@ -1,9 +1,10 @@
 // src/pages/ContactPage.jsx
 import { useEffect, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import ShopList from "../components/ShopList";
 import LoadingScreen from "../components/LoadingScreen";
 
-export default function ContactPage() {
+export default function ContactPage({ setPage }) {
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [homeCity, setHomeCity] = useState(
@@ -33,7 +34,6 @@ export default function ContactPage() {
     return () => window.removeEventListener("city-changed", handleCityChange);
   }, []);
 
-  // ✅ Show loading spinner while fetching
   if (loading) return <LoadingScreen />;
 
   // ✅ Filter shops by selected city
@@ -43,15 +43,44 @@ export default function ContactPage() {
       )
     : shops;
 
-  // ✅ Handle no results
-  if (filteredShops.length === 0) {
-    return (
-      <p className="p-4 text-center text-gray-500 dark:text-gray-400">
-        No contacts found for {homeCity || "all cities"}.
-      </p>
-    );
-  }
+  return (
+    <div className="flex flex-col h-full">
+      {/* 🔵 Local header */}
+      <div className="bg-gradient-to-b from-blue-500 to-blue-400 text-white pt-[env(safe-area-inset-top)] shadow-md">
+        <div className="flex items-center gap-3 px-4 h-14">
+          <button
+            onClick={() => setPage("home")}
+            className="p-2 rounded-full hover:bg-white/20 transition"
+          >
+            <ArrowLeft size={22} className="text-white" />
+          </button>
+          <h1 className="text-lg font-semibold">Contacts</h1>
+        </div>
 
-  // ✅ Pass filtered list into ShopList
-  return <ShopList shops={filteredShops} />;
+        {/* Carousel under header */}
+        <div className="px-4 py-3">
+          <div className="w-full h-28 rounded-xl bg-gradient-to-r from-blue-400 to-blue-500 
+                          flex items-center justify-center text-white font-semibold shadow">
+            Carousel Area
+          </div>
+        </div>
+      </div>
+
+      {/* 📒 White floating container (search + list only) */}
+      <div
+        className="flex-1 relative -mt-4
+                   bg-white dark:bg-black
+                   rounded-t-3xl shadow-lg
+                   z-10 overflow-hidden"
+      >
+        {filteredShops.length > 0 ? (
+          <ShopList shops={filteredShops} />
+        ) : (
+          <p className="p-4 text-center text-gray-500 dark:text-gray-400">
+            No contacts found for {homeCity || "all cities"}.
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }

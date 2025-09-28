@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import BottomNav from "./components/BottomNav";
+import Navbar from "./components/Navbar";
 import ProfileDrawer from "./components/ProfileDrawer";
 import PageWrapper from "./components/PageWrapper";
 import LoadingScreen from "./components/LoadingScreen";
@@ -19,7 +20,7 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [bottomVisible, setBottomVisible] = useState(true); // ✅ controls bottom nav
+  const [bottomVisible, setBottomVisible] = useState(true);
 
   // ✅ Theme state (light, dark, auto)
   const [theme, setTheme] = useState(() => {
@@ -35,7 +36,6 @@ export default function App() {
       } else if (theme === "light") {
         root.classList.remove("dark");
       } else {
-        // auto → follow system
         if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
           root.classList.add("dark");
         } else {
@@ -55,7 +55,7 @@ export default function App() {
     }
   }, [theme]);
 
-  // ✅ Load city list from shops.json
+  // ✅ Load city list
   useEffect(() => {
     fetch("/shops.json")
       .then((res) => res.json())
@@ -67,7 +67,7 @@ export default function App() {
       .catch(() => setLoading(false));
   }, []);
 
-  // ✅ Sync tab with history API (deep-link URLs)
+  // ✅ Sync tab with history API
   useEffect(() => {
     window.history.pushState(null, "", `/${page}`);
   }, [page]);
@@ -75,15 +75,20 @@ export default function App() {
   // ✅ Page mapping
   const pages = {
     home: <HomePage setPage={setPage} />,
-    contact: <ContactPage />,
+    contact: <ContactPage setPage={setPage} />, // pass setPage for back button
     education: <EducationPage setPage={setPage} />,
     learning: <LearningPage />,
-    quiz: <QuizPage setBottomVisible={setBottomVisible} />, // ✅ pass setter
+    quiz: <QuizPage setBottomVisible={setBottomVisible} />,
   };
+
+  const isShopList = page === "contact";
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
-      {/* Profile drawer (for settings/theme chooser) */}
+      {/* ✅ Show Navbar only if not ShopList */}
+      {!isShopList && <Navbar />}
+
+      {/* Profile drawer (always available) */}
       <ProfileDrawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -104,12 +109,12 @@ export default function App() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -30 }}
           transition={{ duration: 0.25 }}
-          className="
-            pt-[env(safe-area-inset-top)]
-            pb-[calc(56px+env(safe-area-inset-bottom))]
-          "
+          className={`
+            ${!isShopList ? "pt-[40vh]" : "pt-0"}
+            ${!isShopList ? "pb-[calc(56px+env(safe-area-inset-bottom))]" : ""}
+          `}
         >
-          <PageWrapper noPadding={page === "quiz"}>
+          <PageWrapper noPadding={page === "quiz" || isShopList}>
             {loading && page === "contact" ? (
               <LoadingScreen />
             ) : (
@@ -119,8 +124,8 @@ export default function App() {
         </motion.div>
       </AnimatePresence>
 
-      {/* ✅ Show BottomNav only if visible */}
-      {bottomVisible && (
+      {/* ✅ Show BottomNav only if not ShopList */}
+      {bottomVisible && !isShopList && (
         <BottomNav
           page={page}
           setPage={setPage}
@@ -128,7 +133,7 @@ export default function App() {
         />
       )}
 
-      {/* PWA update toast */}
+      {/* Update Toast */}
       <UpdateToast />
     </div>
   );
